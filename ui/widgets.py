@@ -38,7 +38,7 @@ class HeaderPanel(tk.Frame):
  
         textos = tk.Frame(contenido, bg=T.FONDO_PANEL)
         textos.pack(side="left", fill="x", expand=True)
-        tk.Label(textos, text="Conversor Masivo",
+        tk.Label(textos, text="Docusol",
                  font=T.FUENTE_TITULO, fg=T.TEXTO, bg=T.FONDO_PANEL).pack(anchor="w")
         tk.Label(textos,
                  text="DOCX  →  PDF  ·  Motor Microsoft Word  ·  Preserva hipervínculos",
