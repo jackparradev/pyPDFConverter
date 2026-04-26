@@ -17,7 +17,7 @@ import ui.theme as T
 class HeaderPanel(tk.Frame):
     """Franja superior con logo, título y badge de versión."""
  
-    LOGO_NAMES   = ("logo.png", "logo.gif", "logo.pgm", "logo.ppm")
+    LOGO_NAMES   = ("logotipo.png", "logo.gif", "logo.pgm", "logo.ppm")
     LOGO_MAX_H   = 52
     VERSION_TEXT = "v1.0"
  

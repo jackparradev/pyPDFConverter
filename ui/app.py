@@ -37,7 +37,7 @@ class App(tk.Tk):
     # ── Inicialización ─────────────────────────────────────────────────────
  
     def _aplicar_icono(self) -> None:
-        ruta = _assets_dir() / "icono.ico"
+        ruta = _assets_dir() / "logo.ico"
         if ruta.exists():
             try:
                 self.iconbitmap(str(ruta))
