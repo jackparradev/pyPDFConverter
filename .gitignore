@@ -1,2 +1,21 @@
 __pycache__/
 *.pyc
+
+
+.venv/
+venv/
+env/
+
+
+# Nuitka build outputs
+*.build/
+*.dist/
+*.onefile-build/
+__nuitka_cache__/
+
+# ejecutables
+*.exe
+
+# cache de python
+__pycache__/
+*.pyc

@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 import tkinter as tk
 from pathlib import Path
+import sys
 from tkinter import messagebox
 
 from ui.theme import tema
@@ -12,6 +13,8 @@ from core.models import BatchResult
 
 
 def _assets_dir() -> Path:
+    if getattr(sys, 'frozen', False):
+        return Path(sys._MEIPASS) / "assets"
     return Path(__file__).parent.parent / "assets"
 
 
