@@ -1,19 +1,25 @@
 from pathlib import Path
- 
- 
+
+
 class FileScanner:
-    """Escanea una carpeta en busca de archivos .docx."""
- 
-    EXTENSION = "*.docx"
- 
+    """Escanea carpetas y valida rutas de entrada/salida."""
+
     def listar_docx(self, carpeta: Path) -> list[Path]:
-        """Retorna lista ordenada de .docx encontrados en la carpeta."""
         if not carpeta.exists():
             raise FileNotFoundError(f"La carpeta no existe: {carpeta}")
         if not carpeta.is_dir():
             raise NotADirectoryError(f"La ruta no es una carpeta: {carpeta}")
-        return sorted(carpeta.glob(self.EXTENSION))
- 
+
+        archivos: list[Path] = []
+        for item in carpeta.iterdir():
+            if not item.is_file():
+                continue
+            if item.name.startswith("~$"):
+                continue
+            if item.suffix.lower() == ".docx":
+                archivos.append(item)
+
+        return sorted(archivos, key=lambda p: p.name.lower())
+
     def validar_salida(self, carpeta: Path) -> None:
-        """Crea la carpeta de salida si no existe."""
         carpeta.mkdir(parents=True, exist_ok=True)
