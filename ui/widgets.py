@@ -10,56 +10,131 @@ try:
 except ImportError:
     PIL_DISPONIBLE = False
 
-import ui.theme as T
+from ui.theme import (
+    tema,
+    aplicar_hover,
+    FUENTE_TITULO,
+    FUENTE_SUBTIT,
+    FUENTE_LABEL,
+    FUENTE_NORMAL,
+    FUENTE_MONO,
+    FUENTE_BTN,
+    FUENTE_BTN_PRI,
+)
 
+
+# ══════════════════════════════════════════════════════════════
+#  HeaderPanel
+# ══════════════════════════════════════════════════════════════
 
 class HeaderPanel(tk.Frame):
     LOGO_NAMES = ("logotipo.png", "logo.gif", "logo.pgm", "logo.ppm")
     LOGO_MAX_H = 52
     VERSION_TEXT = "v1.0"
 
-    def __init__(self, master, assets_dir: Path, **kwargs):
-        super().__init__(master, bg=T.FONDO_PANEL, **kwargs)
+    def __init__(self, master, assets_dir: Path, on_toggle_tema: Callable | None = None, **kwargs):
+        super().__init__(master, bg=tema.get("FONDO_PANEL"), **kwargs)
         self._logo_img = self._cargar_logo(assets_dir)
+        self._on_toggle_tema = on_toggle_tema
         self._construir()
 
     def _construir(self):
-        tk.Frame(self, bg=T.ACENTO, height=3).pack(fill="x")
+        self._barra_acento = tk.Frame(self, bg=tema.get("ACENTO"), height=3)
+        self._barra_acento.pack(fill="x")
 
-        contenido = tk.Frame(self, bg=T.FONDO_PANEL, padx=28, pady=18)
-        contenido.pack(fill="x")
+        self._contenido = tk.Frame(self, bg=tema.get("FONDO_PANEL"), padx=28, pady=18)
+        self._contenido.pack(fill="x")
 
         if self._logo_img:
-            tk.Label(contenido, image=self._logo_img, bg=T.FONDO_PANEL).pack(
-                side="left", padx=(0, 18)
+            self._lbl_logo = tk.Label(
+                self._contenido, image=self._logo_img, bg=tema.get("FONDO_PANEL")
             )
+            self._lbl_logo.pack(side="left", padx=(0, 18))
+        else:
+            self._lbl_logo = None
 
-        textos = tk.Frame(contenido, bg=T.FONDO_PANEL)
-        textos.pack(side="left", fill="x", expand=True)
+        self._textos = tk.Frame(self._contenido, bg=tema.get("FONDO_PANEL"))
+        self._textos.pack(side="left", fill="x", expand=True)
 
-        tk.Label(
-            textos,
+        self._lbl_titulo = tk.Label(
+            self._textos,
             text="Docusol",
-            font=T.FUENTE_TITULO,
-            fg=T.TEXTO,
-            bg=T.FONDO_PANEL,
-        ).pack(anchor="w")
+            font=FUENTE_TITULO,
+            fg=tema.get("TEXTO"),
+            bg=tema.get("FONDO_PANEL"),
+        )
+        self._lbl_titulo.pack(anchor="w")
 
-        tk.Label(
-            textos,
+        self._lbl_subtitulo = tk.Label(
+            self._textos,
             text="DOCX  →  PDF  ·  Motor Microsoft Word  ·  Preserva hipervínculos",
-            font=T.FUENTE_SUBTIT,
-            fg=T.TEXTO_SEC,
-            bg=T.FONDO_PANEL,
-        ).pack(anchor="w")
+            font=FUENTE_SUBTIT,
+            fg=tema.get("TEXTO_SEC"),
+            bg=tema.get("FONDO_PANEL"),
+        )
+        self._lbl_subtitulo.pack(anchor="w")
 
-        tk.Label(
-            contenido,
+        # Frame derecho: contiene versión y toggle de tema
+        self._frame_derecho = tk.Frame(self._contenido, bg=tema.get("FONDO_PANEL"))
+        self._frame_derecho.pack(side="right", anchor="ne")
+
+        self._lbl_version = tk.Label(
+            self._frame_derecho,
             text=self.VERSION_TEXT,
             font=("Segoe UI", 8, "bold"),
-            fg=T.ACENTO,
-            bg=T.FONDO_PANEL,
-        ).pack(side="right", anchor="ne")
+            fg=tema.get("ACENTO"),
+            bg=tema.get("FONDO_PANEL"),
+        )
+        self._lbl_version.pack(anchor="e")
+
+        # Botón toggle de tema
+        icono = "☀️" if tema.is_dark else "🌙"
+        self._btn_tema = tk.Button(
+            self._frame_derecho,
+            text=icono,
+            command=self._toggle_tema,
+            font=("Segoe UI", 14),
+            bg=tema.get("FONDO_PANEL"),
+            fg=tema.get("TEXTO_SEC"),
+            activebackground=tema.get("FONDO_PANEL"),
+            activeforeground=tema.get("TEXTO"),
+            relief="flat",
+            bd=0,
+            cursor="hand2",
+            padx=4,
+            pady=0,
+        )
+        self._btn_tema.pack(anchor="e", pady=(4, 0))
+
+    def _toggle_tema(self):
+        if self._on_toggle_tema:
+            self._on_toggle_tema()
+
+    def actualizar_tema(self) -> None:
+        """Actualiza todos los colores del HeaderPanel al tema activo."""
+        fp = tema.get("FONDO_PANEL")
+        self.config(bg=fp)
+        self._barra_acento.config(bg=tema.get("ACENTO"))
+        self._contenido.config(bg=fp)
+        self._textos.config(bg=fp)
+        self._frame_derecho.config(bg=fp)
+
+        if self._lbl_logo:
+            self._lbl_logo.config(bg=fp)
+
+        self._lbl_titulo.config(fg=tema.get("TEXTO"), bg=fp)
+        self._lbl_subtitulo.config(fg=tema.get("TEXTO_SEC"), bg=fp)
+        self._lbl_version.config(fg=tema.get("ACENTO"), bg=fp)
+
+        # Actualizar ícono del toggle
+        icono = "☀️" if tema.is_dark else "🌙"
+        self._btn_tema.config(
+            text=icono,
+            bg=fp,
+            fg=tema.get("TEXTO_SEC"),
+            activebackground=fp,
+            activeforeground=tema.get("TEXTO"),
+        )
 
     def _cargar_logo(self, assets_dir: Path):
         for nombre in self.LOGO_NAMES:
@@ -81,6 +156,10 @@ class HeaderPanel(tk.Frame):
         return None
 
 
+# ══════════════════════════════════════════════════════════════
+#  RoutePanel
+# ══════════════════════════════════════════════════════════════
+
 class RoutePanel(tk.Frame):
     def __init__(
         self,
@@ -91,8 +170,8 @@ class RoutePanel(tk.Frame):
     ):
         super().__init__(
             master,
-            bg=T.FONDO_PANEL,
-            highlightbackground=T.BORDE,
+            bg=tema.get("FONDO_PANEL"),
+            highlightbackground=tema.get("BORDE"),
             highlightthickness=1,
             **kwargs,
         )
@@ -100,81 +179,134 @@ class RoutePanel(tk.Frame):
         self._on_salida = on_salida
         self.var_entrada = tk.StringVar()
         self.var_salida = tk.StringVar()
+
+        # Listas para rastrear sub-widgets dinámicos
+        self._labels: list[tk.Label] = []
+        self._entries: list[tk.Entry] = []
+        self._botones: list[tk.Button] = []
+        self._frames: list[tk.Frame] = []
+        self._separadores: list[tk.Frame] = []
+
         self._construir()
 
     def _construir(self):
-        interior = tk.Frame(self, bg=T.FONDO_PANEL, padx=20, pady=18)
-        interior.pack(fill="x")
+        self._interior = tk.Frame(self, bg=tema.get("FONDO_PANEL"), padx=20, pady=18)
+        self._interior.pack(fill="x")
 
-        tk.Label(
-            interior,
+        self._lbl_seccion = tk.Label(
+            self._interior,
             text="CONFIGURACIÓN DE RUTAS",
             font=("Segoe UI", 8, "bold"),
-            fg=T.ACENTO,
-            bg=T.FONDO_PANEL,
-        ).pack(anchor="w")
+            fg=tema.get("ACENTO"),
+            bg=tema.get("FONDO_PANEL"),
+        )
+        self._lbl_seccion.pack(anchor="w")
 
-        tk.Frame(interior, bg=T.BORDE, height=1).pack(fill="x", pady=(4, 14))
+        self._sep_titulo = tk.Frame(
+            self._interior, bg=tema.get("BORDE"), height=1
+        )
+        self._sep_titulo.pack(fill="x", pady=(4, 14))
 
         self._fila_ruta(
-            interior,
+            self._interior,
             "📂  Carpeta de entrada  (archivos .docx)",
             self.var_entrada,
             self._seleccionar_entrada,
         )
 
-        tk.Frame(interior, bg=T.FONDO, height=10).pack()
+        self._sep_medio = tk.Frame(
+            self._interior, bg=tema.get("FONDO"), height=10
+        )
+        self._sep_medio.pack()
 
         self._fila_ruta(
-            interior,
+            self._interior,
             "📁  Carpeta de salida  (PDFs generados)",
             self.var_salida,
             self._seleccionar_salida,
         )
 
     def _fila_ruta(self, padre, etiqueta: str, variable: tk.StringVar, comando: Callable):
-        from tkinter import filedialog  # noqa: F401
-
-        tk.Label(
+        lbl = tk.Label(
             padre,
             text=etiqueta,
-            font=T.FUENTE_LABEL,
-            fg=T.TEXTO,
-            bg=T.FONDO_PANEL,
-        ).pack(anchor="w")
+            font=FUENTE_LABEL,
+            fg=tema.get("TEXTO"),
+            bg=tema.get("FONDO_PANEL"),
+        )
+        lbl.pack(anchor="w")
+        self._labels.append(lbl)
 
-        fila = tk.Frame(padre, bg=T.FONDO_PANEL)
+        fila = tk.Frame(padre, bg=tema.get("FONDO_PANEL"))
         fila.pack(fill="x", pady=(4, 0))
+        self._frames.append(fila)
 
-        tk.Entry(
+        entry = tk.Entry(
             fila,
             textvariable=variable,
-            font=T.FUENTE_MONO,
-            bg=T.FONDO_ENTRADA,
-            fg=T.TEXTO_CAMPO,
-            insertbackground=T.TEXTO,
+            font=FUENTE_MONO,
+            bg=tema.get("FONDO_ENTRADA"),
+            fg=tema.get("TEXTO_CAMPO"),
+            insertbackground=tema.get("TEXTO"),
             relief="flat",
             highlightthickness=1,
-            highlightcolor=T.ACENTO,
-            highlightbackground=T.BORDE,
-        ).pack(side="left", fill="x", expand=True, ipady=8, ipadx=6)
+            highlightcolor=tema.get("ACENTO"),
+            highlightbackground=tema.get("BORDE"),
+        )
+        entry.pack(side="left", fill="x", expand=True, ipady=8, ipadx=6)
+        self._entries.append(entry)
 
         btn = tk.Button(
             fila,
             text="Examinar…",
             command=comando,
-            font=T.FUENTE_BTN,
-            bg=T.BORDE,
-            fg=T.TEXTO,
-            activebackground=T.ACENTO,
-            activeforeground=T.TEXTO,
+            font=FUENTE_BTN,
+            bg=tema.get("BORDE"),
+            fg=tema.get("TEXTO"),
+            activebackground=tema.get("ACENTO"),
+            activeforeground=tema.get("TEXTO"),
             relief="flat",
             cursor="hand2",
             padx=14,
             pady=6,
         )
         btn.pack(side="left", padx=(8, 0))
-        T.aplicar_hover(btn, T.ACENTO, T.BORDE)
+        aplicar_hover(btn, tema.get("ACENTO"), tema.get("BORDE"))
+        self._botones.append(btn)
+
+    def actualizar_tema(self) -> None:
+        """Actualiza todos los colores del RoutePanel al tema activo."""
+        fp = tema.get("FONDO_PANEL")
+        self.config(bg=fp, highlightbackground=tema.get("BORDE"))
+        self._interior.config(bg=fp)
+        self._lbl_seccion.config(fg=tema.get("ACENTO"), bg=fp)
+        self._sep_titulo.config(bg=tema.get("BORDE"))
+        self._sep_medio.config(bg=tema.get("FONDO"))
+
+        for lbl in self._labels:
+            lbl.config(fg=tema.get("TEXTO"), bg=fp)
+
+        for frame in self._frames:
+            frame.config(bg=fp)
+
+        for entry in self._entries:
+            entry.config(
+                bg=tema.get("FONDO_ENTRADA"),
+                fg=tema.get("TEXTO_CAMPO"),
+                insertbackground=tema.get("TEXTO"),
+                highlightcolor=tema.get("ACENTO"),
+                highlightbackground=tema.get("BORDE"),
+            )
+
+        for btn in self._botones:
+            btn.config(
+                bg=tema.get("BORDE"),
+                fg=tema.get("TEXTO"),
+                activebackground=tema.get("ACENTO"),
+                activeforeground=tema.get("TEXTO"),
+            )
+            # Re-bind hover con colores actualizados
+            aplicar_hover(btn, tema.get("ACENTO"), tema.get("BORDE"))
 
     def _seleccionar_entrada(self):
         from tkinter import filedialog
@@ -193,6 +325,10 @@ class RoutePanel(tk.Frame):
             self._on_salida(ruta)
 
 
+# ══════════════════════════════════════════════════════════════
+#  ProgressPanel
+# ══════════════════════════════════════════════════════════════
+
 class ProgressPanel(tk.Frame):
     def __init__(
         self,
@@ -203,8 +339,8 @@ class ProgressPanel(tk.Frame):
     ):
         super().__init__(
             master,
-            bg=T.FONDO_PANEL,
-            highlightbackground=T.BORDE,
+            bg=tema.get("FONDO_PANEL"),
+            highlightbackground=tema.get("BORDE"),
             highlightthickness=1,
             **kwargs,
         )
@@ -213,52 +349,56 @@ class ProgressPanel(tk.Frame):
         self._construir()
 
     def _construir(self):
-        interior = tk.Frame(self, bg=T.FONDO_PANEL, padx=20, pady=14)
-        interior.pack(fill="x")
+        self._interior = tk.Frame(
+            self, bg=tema.get("FONDO_PANEL"), padx=20, pady=14
+        )
+        self._interior.pack(fill="x")
 
-        fila = tk.Frame(interior, bg=T.FONDO_PANEL)
-        fila.pack(fill="x", pady=(0, 8))
+        self._fila_estado = tk.Frame(self._interior, bg=tema.get("FONDO_PANEL"))
+        self._fila_estado.pack(fill="x", pady=(0, 8))
 
         self.lbl_estado = tk.Label(
-            fila,
+            self._fila_estado,
             text="En espera…",
-            font=T.FUENTE_NORMAL,
-            fg=T.TEXTO_SEC,
-            bg=T.FONDO_PANEL,
+            font=FUENTE_NORMAL,
+            fg=tema.get("TEXTO_SEC"),
+            bg=tema.get("FONDO_PANEL"),
         )
         self.lbl_estado.pack(side="left")
 
         self.lbl_pct = tk.Label(
-            fila,
+            self._fila_estado,
             text="0 %",
             font=("Segoe UI", 10, "bold"),
-            fg=T.ACENTO,
-            bg=T.FONDO_PANEL,
+            fg=tema.get("ACENTO"),
+            bg=tema.get("FONDO_PANEL"),
         )
         self.lbl_pct.pack(side="right")
 
         self.canvas = tk.Canvas(
-            interior,
+            self._interior,
             height=10,
-            bg=T.FONDO_ENTRADA,
+            bg=tema.get("FONDO_ENTRADA"),
             bd=0,
             highlightthickness=0,
         )
         self.canvas.pack(fill="x")
-        self._barra = self.canvas.create_rectangle(0, 0, 0, 10, fill=T.ACENTO, outline="")
+        self._barra = self.canvas.create_rectangle(
+            0, 0, 0, 10, fill=tema.get("ACENTO"), outline=""
+        )
 
-        fila_btn = tk.Frame(interior, bg=T.FONDO_PANEL)
-        fila_btn.pack(fill="x", pady=(14, 0))
+        self._fila_btn = tk.Frame(self._interior, bg=tema.get("FONDO_PANEL"))
+        self._fila_btn.pack(fill="x", pady=(14, 0))
 
         self.btn_iniciar = tk.Button(
-            fila_btn,
+            self._fila_btn,
             text="▶  INICIAR CONVERSIÓN",
             command=self._on_iniciar,
-            font=T.FUENTE_BTN_PRI,
-            bg=T.ACENTO,
-            fg="#FFFFFF",
-            activebackground=T.ACENTO_HOVER,
-            activeforeground="#FFFFFF",
+            font=FUENTE_BTN_PRI,
+            bg=tema.get("ACENTO"),
+            fg=tema.get("BTN_PRI_FG"),
+            activebackground=tema.get("ACENTO_HOVER"),
+            activeforeground=tema.get("BTN_PRI_FG"),
             relief="flat",
             cursor="hand2",
             padx=20,
@@ -266,17 +406,20 @@ class ProgressPanel(tk.Frame):
         )
         self.btn_iniciar.pack(side="left", fill="x", expand=True)
 
-        tk.Frame(fila_btn, bg=T.FONDO_PANEL, width=10).pack(side="left")
+        self._sep_btn = tk.Frame(
+            self._fila_btn, bg=tema.get("FONDO_PANEL"), width=10
+        )
+        self._sep_btn.pack(side="left")
 
         self.btn_cancelar = tk.Button(
-            fila_btn,
+            self._fila_btn,
             text="⏹  Cancelar",
             command=self._on_cancelar,
-            font=T.FUENTE_BTN,
-            bg=T.FONDO_ENTRADA,
-            fg=T.TEXTO_SEC,
-            activebackground=T.ERROR_COLOR,
-            activeforeground="#FFFFFF",
+            font=FUENTE_BTN,
+            bg=tema.get("FONDO_ENTRADA"),
+            fg=tema.get("TEXTO_SEC"),
+            activebackground=tema.get("ERROR_COLOR"),
+            activeforeground=tema.get("BTN_PRI_FG"),
             relief="flat",
             cursor="hand2",
             padx=16,
@@ -293,98 +436,183 @@ class ProgressPanel(tk.Frame):
         self.canvas.update_idletasks()
         ancho = max(self.canvas.winfo_width(), 1)
         self.canvas.coords(self._barra, 0, 0, ancho * fraccion, 10)
-        self.canvas.itemconfig(self._barra, fill=T.EXITO if fraccion >= 1 else T.ACENTO)
+        self.canvas.itemconfig(
+            self._barra,
+            fill=tema.get("EXITO") if fraccion >= 1 else tema.get("ACENTO"),
+        )
 
     def set_en_proceso(self, activo: bool) -> None:
         if activo:
-            self.btn_iniciar.config(state="disabled", bg=T.BORDE)
+            self.btn_iniciar.config(state="disabled", bg=tema.get("BORDE"))
             self.btn_cancelar.config(state="normal")
-            self.lbl_estado.config(text="Convirtiendo…", fg=T.ACENTO)
+            self.lbl_estado.config(text="Convirtiendo…", fg=tema.get("ACENTO"))
         else:
-            self.btn_iniciar.config(state="normal", bg=T.ACENTO)
+            self.btn_iniciar.config(state="normal", bg=tema.get("ACENTO"))
             self.btn_cancelar.config(state="disabled")
 
     def set_estado(self, texto: str, color: str) -> None:
         self.lbl_estado.config(text=texto, fg=color)
 
+    def actualizar_tema(self) -> None:
+        """Actualiza todos los colores del ProgressPanel al tema activo."""
+        fp = tema.get("FONDO_PANEL")
+        self.config(bg=fp, highlightbackground=tema.get("BORDE"))
+        self._interior.config(bg=fp)
+        self._fila_estado.config(bg=fp)
+        self._fila_btn.config(bg=fp)
+        self._sep_btn.config(bg=fp)
+
+        self.lbl_estado.config(bg=fp)
+        self.lbl_pct.config(fg=tema.get("ACENTO"), bg=fp)
+        self.canvas.config(bg=tema.get("FONDO_ENTRADA"))
+
+        # Actualizar la barra: mantener color según progreso actual
+        self.canvas.itemconfig(self._barra, fill=tema.get("ACENTO"))
+
+        # Botón iniciar: respetar estado actual (disabled usa color BORDE)
+        if str(self.btn_iniciar.cget("state")) == "disabled":
+            self.btn_iniciar.config(
+                bg=tema.get("BORDE"),
+                fg=tema.get("BTN_PRI_FG"),
+                activebackground=tema.get("ACENTO_HOVER"),
+                activeforeground=tema.get("BTN_PRI_FG"),
+            )
+        else:
+            self.btn_iniciar.config(
+                bg=tema.get("ACENTO"),
+                fg=tema.get("BTN_PRI_FG"),
+                activebackground=tema.get("ACENTO_HOVER"),
+                activeforeground=tema.get("BTN_PRI_FG"),
+            )
+
+        self.btn_cancelar.config(
+            bg=tema.get("FONDO_ENTRADA"),
+            fg=tema.get("TEXTO_SEC"),
+            activebackground=tema.get("ERROR_COLOR"),
+            activeforeground=tema.get("BTN_PRI_FG"),
+        )
+
+
+# ══════════════════════════════════════════════════════════════
+#  LogPanel
+# ══════════════════════════════════════════════════════════════
 
 class LogPanel(tk.Frame):
-    TAGS = {
-        "info": T.TEXTO_SEC,
-        "normal": T.TEXTO,
-        "ok": T.EXITO,
-        "error": T.ERROR_COLOR,
-        "warn": T.ADVERTENCIA,
-        "sep": T.BORDE,
-    }
-
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self._construir()
 
+    @property
+    def _tag_colors(self) -> dict[str, str]:
+        """Devuelve colores de tags según el tema activo."""
+        return {
+            "info":   tema.get("TEXTO_SEC"),
+            "normal": tema.get("TEXTO"),
+            "ok":     tema.get("EXITO"),
+            "error":  tema.get("ERROR_COLOR"),
+            "warn":   tema.get("ADVERTENCIA"),
+            "sep":    tema.get("BORDE"),
+        }
+
     def _construir(self):
-        cab = tk.Frame(self, bg=T.FONDO_PANEL,
-                       highlightbackground=T.BORDE, highlightthickness=1)
-        cab.pack(fill="x")
+        self._cab = tk.Frame(
+            self,
+            bg=tema.get("FONDO_PANEL"),
+            highlightbackground=tema.get("BORDE"),
+            highlightthickness=1,
+        )
+        self._cab.pack(fill="x")
 
-        cab_int = tk.Frame(cab, bg=T.FONDO_PANEL, padx=20, pady=10)
-        cab_int.pack(fill="x")
+        self._cab_int = tk.Frame(
+            self._cab, bg=tema.get("FONDO_PANEL"), padx=20, pady=10
+        )
+        self._cab_int.pack(fill="x")
 
-        tk.Label(
-            cab_int,
+        self._lbl_titulo = tk.Label(
+            self._cab_int,
             text="REGISTRO DE ACTIVIDAD",
             font=("Segoe UI", 8, "bold"),
-            fg=T.ACENTO,
-            bg=T.FONDO_PANEL,
-        ).pack(side="left")
+            fg=tema.get("ACENTO"),
+            bg=tema.get("FONDO_PANEL"),
+        )
+        self._lbl_titulo.pack(side="left")
 
-        tk.Button(
-            cab_int,
+        self._btn_limpiar = tk.Button(
+            self._cab_int,
             text="Limpiar",
             command=self.limpiar,
             font=("Segoe UI", 8),
-            bg=T.BORDE,
-            fg=T.TEXTO_SEC,
+            bg=tema.get("BORDE"),
+            fg=tema.get("TEXTO_SEC"),
             relief="flat",
             cursor="hand2",
             padx=8,
             pady=2,
-        ).pack(side="right")
+        )
+        self._btn_limpiar.pack(side="right")
 
-        frame_txt = tk.Frame(
+        self._frame_txt = tk.Frame(
             self,
-            bg=T.FONDO_PANEL,
-            highlightbackground=T.BORDE,
+            bg=tema.get("FONDO_PANEL"),
+            highlightbackground=tema.get("BORDE"),
             highlightthickness=1,
         )
-        frame_txt.pack(fill="both")
+        self._frame_txt.pack(fill="both")
 
-        scrollbar = tk.Scrollbar(frame_txt, bg=T.FONDO_PANEL)
-        scrollbar.pack(side="right", fill="y")
+        self._scrollbar = tk.Scrollbar(
+            self._frame_txt, bg=tema.get("FONDO_PANEL")
+        )
+        self._scrollbar.pack(side="right", fill="y")
 
         self._txt = tk.Text(
-            frame_txt,
+            self._frame_txt,
             height=10,
-            font=T.FUENTE_MONO,
-            bg="#0D0F18",
-            fg=T.TEXTO_SEC,
-            insertbackground=T.TEXTO,
+            font=FUENTE_MONO,
+            bg=tema.get("FONDO_LOG"),
+            fg=tema.get("TEXTO_SEC"),
+            insertbackground=tema.get("TEXTO"),
             relief="flat",
             wrap="word",
             state="disabled",
-            yscrollcommand=scrollbar.set,
+            yscrollcommand=self._scrollbar.set,
             padx=14,
             pady=10,
         )
         self._txt.pack(fill="both", expand=True)
-        scrollbar.config(command=self._txt.yview)
+        self._scrollbar.config(command=self._txt.yview)
 
-        for tag, color in self.TAGS.items():
+        # Configurar tags con colores del tema
+        for tag, color in self._tag_colors.items():
+            self._txt.tag_config(tag, foreground=color)
+
+    def actualizar_tema(self) -> None:
+        """Actualiza todos los colores del LogPanel al tema activo."""
+        fp = tema.get("FONDO_PANEL")
+        self.config(bg=tema.get("FONDO"))
+        self._cab.config(bg=fp, highlightbackground=tema.get("BORDE"))
+        self._cab_int.config(bg=fp)
+        self._lbl_titulo.config(fg=tema.get("ACENTO"), bg=fp)
+        self._btn_limpiar.config(
+            bg=tema.get("BORDE"), fg=tema.get("TEXTO_SEC")
+        )
+
+        self._frame_txt.config(
+            bg=fp, highlightbackground=tema.get("BORDE")
+        )
+        self._scrollbar.config(bg=fp)
+        self._txt.config(
+            bg=tema.get("FONDO_LOG"),
+            fg=tema.get("TEXTO_SEC"),
+            insertbackground=tema.get("TEXTO"),
+        )
+
+        # Re-configurar colores de tags
+        for tag, color in self._tag_colors.items():
             self._txt.tag_config(tag, foreground=color)
 
     def agregar(self, mensaje: str, tipo: str = "normal") -> None:
         self._txt.config(state="normal")
-        self._txt.insert("end", mensaje + "\n", tipo if tipo in self.TAGS else "normal")
+        self._txt.insert("end", mensaje + "\n", tipo if tipo in self._tag_colors else "normal")
         self._txt.see("end")
         self._txt.config(state="disabled")
 

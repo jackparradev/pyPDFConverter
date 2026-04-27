@@ -5,7 +5,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox
 
-import ui.theme as T
+from ui.theme import tema
 from ui.widgets import HeaderPanel, RoutePanel, ProgressPanel, LogPanel
 from core.converter import MassConverter
 from core.models import BatchResult
@@ -23,7 +23,7 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(self.TITULO)
-        self.configure(bg=T.FONDO)
+        self.configure(bg=tema.get("FONDO"))
         self.resizable(False, False)
 
         self._evento_cancelar = threading.Event()
@@ -34,6 +34,9 @@ class App(tk.Tk):
         self._construir_ui()
         self._centrar(self.ANCHO, self.ALTO)
         self.protocol("WM_DELETE_WINDOW", self.destroy)
+
+        # Registrar como observer del ThemeManager
+        tema.register(self._aplicar_tema)
 
     def _aplicar_icono(self) -> None:
         ruta = _assets_dir() / "logo.ico"
@@ -50,35 +53,64 @@ class App(tk.Tk):
         self.geometry(f"{ancho}x{alto}+{x}+{y}")
 
     def _construir_ui(self) -> None:
-        HeaderPanel(self, assets_dir=_assets_dir()).pack(fill="x")
+        self._header = HeaderPanel(
+            self,
+            assets_dir=_assets_dir(),
+            on_toggle_tema=self._toggle_tema,
+        )
+        self._header.pack(fill="x")
 
-        cuerpo = tk.Frame(self, bg=T.FONDO, padx=24, pady=0)
-        cuerpo.pack(fill="x")
+        self._cuerpo = tk.Frame(self, bg=tema.get("FONDO"), padx=24, pady=0)
+        self._cuerpo.pack(fill="x")
 
         self._rutas = RoutePanel(
-            cuerpo,
+            self._cuerpo,
             on_entrada=self._auto_proponer_salida,
             on_salida=lambda _: None,
         )
         self._rutas.pack(fill="x", pady=(20, 0))
 
         self._progreso = ProgressPanel(
-            cuerpo,
+            self._cuerpo,
             on_iniciar=self._iniciar,
             on_cancelar=self._cancelar,
         )
         self._progreso.pack(fill="x", pady=(12, 0))
 
-        self._log = LogPanel(cuerpo, bg=T.FONDO)
+        self._log = LogPanel(self._cuerpo, bg=tema.get("FONDO"))
         self._log.pack(fill="x", pady=(12, 0))
 
-        tk.Label(
-            cuerpo,
+        self._lbl_footer = tk.Label(
+            self._cuerpo,
             text="Requiere Microsoft Word instalado  ·  Motor COM — ExportAsFixedFormat",
             font=("Segoe UI", 8),
-            fg=T.BORDE,
-            bg=T.FONDO,
-        ).pack(pady=10)
+            fg=tema.get("BORDE"),
+            bg=tema.get("FONDO"),
+        )
+        self._lbl_footer.pack(pady=10)
+
+    # ── Tema ─────────────────────────────────────────────────
+
+    def _toggle_tema(self) -> None:
+        """Alterna entre modo oscuro y claro."""
+        tema.toggle()
+
+    def _aplicar_tema(self) -> None:
+        """Refresca TODOS los widgets con los colores del tema activo.
+
+        Se invoca automáticamente por el ThemeManager (observer).
+        """
+        self.configure(bg=tema.get("FONDO"))
+        self._cuerpo.config(bg=tema.get("FONDO"))
+        self._lbl_footer.config(fg=tema.get("BORDE"), bg=tema.get("FONDO"))
+
+        # Cascada a cada panel
+        self._header.actualizar_tema()
+        self._rutas.actualizar_tema()
+        self._progreso.actualizar_tema()
+        self._log.actualizar_tema()
+
+    # ── Lógica de negocio (sin cambios funcionales) ──────────
 
     def _auto_proponer_salida(self, ruta_entrada: str) -> None:
         if not self._rutas.var_salida.get():
@@ -124,7 +156,7 @@ class App(tk.Tk):
     def _cancelar(self) -> None:
         if self._en_proceso:
             self._evento_cancelar.set()
-            self._progreso.set_estado("Cancelando…", T.ADVERTENCIA)
+            self._progreso.set_estado("Cancelando…", tema.get("ADVERTENCIA"))
             self._progreso.btn_cancelar.config(state="disabled")
 
     def _safe_log(self, mensaje: str, tipo: str = "normal") -> None:
@@ -139,13 +171,13 @@ class App(tk.Tk):
         def _actualizar():
             self._progreso.set_en_proceso(False)
             if resultado.cancelled:
-                self._progreso.set_estado("⚠  Proceso cancelado.", T.ADVERTENCIA)
+                self._progreso.set_estado("⚠  Proceso cancelado.", tema.get("ADVERTENCIA"))
             elif resultado.failure_count == 0 and resultado.success_count > 0:
-                self._progreso.set_estado("✅  Conversión completada.", T.EXITO)
+                self._progreso.set_estado("✅  Conversión completada.", tema.get("EXITO"))
             elif resultado.success_count > 0:
-                self._progreso.set_estado("⚠  Proceso finalizado con errores.", T.ADVERTENCIA)
+                self._progreso.set_estado("⚠  Proceso finalizado con errores.", tema.get("ADVERTENCIA"))
             else:
-                self._progreso.set_estado("❌  No se pudo completar la conversión.", T.ERROR_COLOR)
+                self._progreso.set_estado("❌  No se pudo completar la conversión.", tema.get("ERROR_COLOR"))
 
         self.after(0, _actualizar)
 
@@ -157,4 +189,6 @@ class App(tk.Tk):
             ):
                 return
             self._evento_cancelar.set()
+        # Des-registrar observer antes de destruir
+        tema.unregister(self._aplicar_tema)
         super().destroy()
