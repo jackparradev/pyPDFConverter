@@ -13,6 +13,7 @@ except ImportError:
 from ui.theme import (
     tema,
     aplicar_hover,
+    aplicar_focus,
     FUENTE_TITULO,
     FUENTE_SUBTIT,
     FUENTE_LABEL,
@@ -323,6 +324,296 @@ class RoutePanel(tk.Frame):
         if ruta:
             self.var_salida.set(ruta)
             self._on_salida(ruta)
+
+
+# ══════════════════════════════════════════════════════════════
+#  GeneratorRoutePanel
+# ══════════════════════════════════════════════════════════════
+
+class GeneratorRoutePanel(tk.Frame):
+    """Panel de configuración de rutas para el generador masivo de documentos.
+
+    Expone cinco tk.StringVar públicas:
+        var_excel      – ruta del archivo Excel (.xlsx)
+        var_plantilla  – ruta de la plantilla Word (.docx)
+        var_imagenes   – carpeta raíz de imágenes
+        var_salida     – carpeta de salida de los documentos generados
+        var_grupo      – filtro de grupo (vacío = procesar todos)
+
+    Los callbacks opcionales se invocan con la ruta seleccionada cada vez
+    que el usuario confirma un selector.
+    """
+
+    def __init__(
+        self,
+        master,
+        on_excel:     Callable[[str], None] | None = None,
+        on_plantilla: Callable[[str], None] | None = None,
+        on_imagenes:  Callable[[str], None] | None = None,
+        on_salida:    Callable[[str], None] | None = None,
+        **kwargs,
+    ):
+        super().__init__(
+            master,
+            bg=tema.get("FONDO_PANEL"),
+            highlightbackground=tema.get("BORDE"),
+            highlightthickness=1,
+            **kwargs,
+        )
+        self._on_excel     = on_excel
+        self._on_plantilla = on_plantilla
+        self._on_imagenes  = on_imagenes
+        self._on_salida    = on_salida
+
+        # Variables públicas para lectura externa
+        self.var_excel     = tk.StringVar()
+        self.var_plantilla = tk.StringVar()
+        self.var_imagenes  = tk.StringVar()
+        self.var_salida    = tk.StringVar()
+        self.var_grupo     = tk.StringVar()   # filtro opcional de grupo
+
+        # Listas para rastrear sub-widgets dinámicos (patrón RoutePanel)
+        self._labels:      list[tk.Label]  = []
+        self._entries:     list[tk.Entry]  = []
+        self._botones:     list[tk.Button] = []
+        self._frames:      list[tk.Frame]  = []
+        self._separadores: list[tk.Frame]  = []
+
+        self._construir()
+
+    # ── Construcción ──────────────────────────────────────────
+
+    def _construir(self) -> None:
+        self._interior = tk.Frame(self, bg=tema.get("FONDO_PANEL"), padx=20, pady=18)
+        self._interior.pack(fill="x")
+
+        # Encabezado de sección
+        self._lbl_seccion = tk.Label(
+            self._interior,
+            text="CONFIGURACIÓN DE RUTAS — GENERADOR",
+            font=("Segoe UI", 8, "bold"),
+            fg=tema.get("ACENTO"),
+            bg=tema.get("FONDO_PANEL"),
+        )
+        self._lbl_seccion.pack(anchor="w")
+
+        self._sep_titulo = tk.Frame(self._interior, bg=tema.get("BORDE"), height=1)
+        self._sep_titulo.pack(fill="x", pady=(4, 14))
+
+        # ── Fila 1: Archivo Excel ──────────────────────────────
+        self._fila_archivo(
+            self._interior,
+            "📊  Archivo Excel  (.xlsx)",
+            self.var_excel,
+            self._seleccionar_excel,
+        )
+        self._separadores.append(self._sep_espacio())
+
+        # ── Fila 2: Plantilla Word ─────────────────────────────
+        self._fila_archivo(
+            self._interior,
+            "📄  Plantilla Word  (.docx)",
+            self.var_plantilla,
+            self._seleccionar_plantilla,
+        )
+        self._separadores.append(self._sep_espacio())
+
+        # ── Fila 3: Carpeta de imágenes ────────────────────────
+        self._fila_archivo(
+            self._interior,
+            "🖼️  Carpeta General de Imágenes",
+            self.var_imagenes,
+            self._seleccionar_imagenes,
+        )
+        self._separadores.append(self._sep_espacio())
+
+        # ── Fila 4: Carpeta de salida ──────────────────────────
+        self._fila_archivo(
+            self._interior,
+            "📁  Carpeta de Salida",
+            self.var_salida,
+            self._seleccionar_salida,
+        )
+        self._separadores.append(self._sep_espacio())
+
+        # ── Fila 5: Filtro de grupo ────────────────────────────
+        self._lbl_grupo = tk.Label(
+            self._interior,
+            text="🔍  Filtrar por Grupo  (vacío = procesar todos)",
+            font=FUENTE_LABEL,
+            fg=tema.get("TEXTO"),
+            bg=tema.get("FONDO_PANEL"),
+        )
+        self._lbl_grupo.pack(anchor="w")
+
+        self._entry_grupo = tk.Entry(
+            self._interior,
+            textvariable=self.var_grupo,
+            font=FUENTE_MONO,
+            bg=tema.get("FONDO_ENTRADA"),
+            fg=tema.get("TEXTO_CAMPO"),
+            insertbackground=tema.get("TEXTO"),
+            relief="flat",
+            highlightthickness=1,
+            highlightcolor=tema.get("ACENTO"),
+            highlightbackground=tema.get("BORDE"),
+        )
+        self._entry_grupo.pack(fill="x", ipady=8, ipadx=6, pady=(4, 0))
+        aplicar_focus(self._entry_grupo, tema.get("FOCUS"), tema.get("BORDE"))
+
+    def _sep_espacio(self) -> tk.Frame:
+        """Crea y empaqueta un separador de espacio vertical entre filas."""
+        sep = tk.Frame(self._interior, bg=tema.get("FONDO"), height=10)
+        sep.pack()
+        return sep
+
+    def _fila_archivo(
+        self,
+        padre,
+        etiqueta: str,
+        variable: tk.StringVar,
+        comando: Callable,
+    ) -> None:
+        """Crea una fila label + entry + botón Examinar siguiendo el patrón RoutePanel."""
+        lbl = tk.Label(
+            padre,
+            text=etiqueta,
+            font=FUENTE_LABEL,
+            fg=tema.get("TEXTO"),
+            bg=tema.get("FONDO_PANEL"),
+        )
+        lbl.pack(anchor="w")
+        self._labels.append(lbl)
+
+        fila = tk.Frame(padre, bg=tema.get("FONDO_PANEL"))
+        fila.pack(fill="x", pady=(4, 0))
+        self._frames.append(fila)
+
+        entry = tk.Entry(
+            fila,
+            textvariable=variable,
+            font=FUENTE_MONO,
+            bg=tema.get("FONDO_ENTRADA"),
+            fg=tema.get("TEXTO_CAMPO"),
+            insertbackground=tema.get("TEXTO"),
+            relief="flat",
+            highlightthickness=1,
+            highlightcolor=tema.get("ACENTO"),
+            highlightbackground=tema.get("BORDE"),
+        )
+        entry.pack(side="left", fill="x", expand=True, ipady=8, ipadx=6)
+        aplicar_focus(entry, tema.get("FOCUS"), tema.get("BORDE"))
+        self._entries.append(entry)
+
+        btn = tk.Button(
+            fila,
+            text="Examinar…",
+            command=comando,
+            font=FUENTE_BTN,
+            bg=tema.get("BORDE"),
+            fg=tema.get("TEXTO"),
+            activebackground=tema.get("ACENTO"),
+            activeforeground=tema.get("BTN_PRI_FG"),
+            relief="flat",
+            cursor="hand2",
+            padx=14,
+            pady=6,
+        )
+        btn.pack(side="left", padx=(8, 0))
+        aplicar_hover(btn, tema.get("ACENTO"), tema.get("BORDE"))
+        self._botones.append(btn)
+
+    # ── Selectores ────────────────────────────────────────────
+
+    def _seleccionar_excel(self) -> None:
+        from tkinter import filedialog
+        ruta = filedialog.askopenfilename(
+            title="Selecciona el archivo Excel de datos",
+            filetypes=[("Archivos Excel", "*.xlsx"), ("Todos los archivos", "*.*")],
+        )
+        if ruta:
+            self.var_excel.set(ruta)
+            if self._on_excel:
+                self._on_excel(ruta)
+
+    def _seleccionar_plantilla(self) -> None:
+        from tkinter import filedialog
+        ruta = filedialog.askopenfilename(
+            title="Selecciona la plantilla Word",
+            filetypes=[("Documentos Word", "*.docx"), ("Todos los archivos", "*.*")],
+        )
+        if ruta:
+            self.var_plantilla.set(ruta)
+            if self._on_plantilla:
+                self._on_plantilla(ruta)
+
+    def _seleccionar_imagenes(self) -> None:
+        from tkinter import filedialog
+        ruta = filedialog.askdirectory(title="Selecciona la carpeta general de imágenes")
+        if ruta:
+            self.var_imagenes.set(ruta)
+            if self._on_imagenes:
+                self._on_imagenes(ruta)
+
+    def _seleccionar_salida(self) -> None:
+        from tkinter import filedialog
+        ruta = filedialog.askdirectory(title="Selecciona la carpeta de salida")
+        if ruta:
+            self.var_salida.set(ruta)
+            if self._on_salida:
+                self._on_salida(ruta)
+
+    # ── Tema ──────────────────────────────────────────────────
+
+    def actualizar_tema(self) -> None:
+        """Actualiza todos los colores del GeneratorRoutePanel al tema activo."""
+        fp = tema.get("FONDO_PANEL")
+        self.config(bg=fp, highlightbackground=tema.get("BORDE"))
+        self._interior.config(bg=fp)
+        self._lbl_seccion.config(fg=tema.get("ACENTO"), bg=fp)
+        self._sep_titulo.config(bg=tema.get("BORDE"))
+
+        for sep in self._separadores:
+            sep.config(bg=tema.get("FONDO"))
+
+        for lbl in self._labels:
+            lbl.config(fg=tema.get("TEXTO"), bg=fp)
+
+        for frame in self._frames:
+            frame.config(bg=fp)
+
+        for entry in self._entries:
+            entry.config(
+                bg=tema.get("FONDO_ENTRADA"),
+                fg=tema.get("TEXTO_CAMPO"),
+                insertbackground=tema.get("TEXTO"),
+                highlightcolor=tema.get("ACENTO"),
+                highlightbackground=tema.get("BORDE"),
+            )
+            # Re-bind focus con colores actualizados
+            aplicar_focus(entry, tema.get("FOCUS"), tema.get("BORDE"))
+
+        for btn in self._botones:
+            btn.config(
+                bg=tema.get("BORDE"),
+                fg=tema.get("TEXTO"),
+                activebackground=tema.get("ACENTO"),
+                activeforeground=tema.get("BTN_PRI_FG"),
+            )
+            # Re-bind hover con colores actualizados
+            aplicar_hover(btn, tema.get("ACENTO"), tema.get("BORDE"))
+
+        # Campo de filtro de grupo
+        self._lbl_grupo.config(fg=tema.get("TEXTO"), bg=fp)
+        self._entry_grupo.config(
+            bg=tema.get("FONDO_ENTRADA"),
+            fg=tema.get("TEXTO_CAMPO"),
+            insertbackground=tema.get("TEXTO"),
+            highlightcolor=tema.get("ACENTO"),
+            highlightbackground=tema.get("BORDE"),
+        )
+        aplicar_focus(self._entry_grupo, tema.get("FOCUS"), tema.get("BORDE"))
+
 
 
 # ══════════════════════════════════════════════════════════════
