@@ -299,7 +299,7 @@ class DiagnosticoWindow(tk.Tk):
 
         fila = None
         if grupo_filtro:
-            def _grupo_str(valor: Any) -> str:
+            def _grupo_str(valor) -> str:
                 if isinstance(valor, float) and valor.is_integer():
                     return str(int(valor))
                 return str(valor).strip() if valor is not None else ""

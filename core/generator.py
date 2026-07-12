@@ -345,7 +345,7 @@ class MassGenerator:
             )
 
         # --- Paso 2: generar el .docx ---
-        nombre_archivo = f"{correlativo}_{placa}.docx"
+        nombre_archivo = f"REPORTE DE FUGA VEHICULAR 0{correlativo}-2026-COVISOL VEH. {placa}.docx"
         ruta_destino   = carpeta_salida / nombre_archivo
 
         try:

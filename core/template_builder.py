@@ -46,12 +46,10 @@ from typing import Any
 from PIL import Image
 
 from docxtpl import DocxTemplate, InlineImage, RichText
-from docx.shared import Mm
+
+from core.image_handler import ALTOS_ESTANDAR
 
 logger = logging.getLogger(__name__)
-
-# Ancho fijo para las tres imágenes incrustadas (140 mm)
-_ANCHO_IMAGEN_MM: int = 140
 
 
 class TemplateBuilder:
@@ -206,16 +204,17 @@ class TemplateBuilder:
         url_evidencia: str = str(datos_fila.get("url_evidencia", "") or "")
         contexto["url_evidencia"] = self._construir_hyperlink(tpl, url_evidencia)
 
-        # --- Imágenes incrustadas (140 mm de ancho) ---
-        contexto["img_cam"] = self._cargar_imagen_segura(
-            tpl, rutas_imagenes["img_cam"], _ANCHO_IMAGEN_MM
-        )
-        contexto["img_fuga"] = self._cargar_imagen_segura(
-            tpl, rutas_imagenes["img_fuga"], _ANCHO_IMAGEN_MM
-        )
-        contexto["img_sunarp"] = self._cargar_imagen_segura(
-            tpl, rutas_imagenes["img_sunarp"], _ANCHO_IMAGEN_MM
-        )
+        # --- Imágenes incrustadas (escalado proporcional por altura) ---
+        # Intercambiados a pedido del usuario: img_cam recibe la foto de fuga y viceversa
+        rutas_intercambiadas = {
+            "img_cam": rutas_imagenes["img_fuga"],
+            "img_fuga": rutas_imagenes["img_cam"],
+            "img_sunarp": rutas_imagenes["img_sunarp"],
+        }
+        for clave, ruta in rutas_intercambiadas.items():
+            contexto[clave] = self._cargar_imagen_segura(
+                tpl, ruta, ALTOS_ESTANDAR[clave]
+            )
 
         logger.debug(
             "Contexto construido: campos_texto=%s, url_evidencia='%s'",
@@ -257,16 +256,21 @@ class TemplateBuilder:
         
     def _construir_hyperlink(self, tpl: DocxTemplate, url: str) -> RichText | str:
         """
-        Intenta construir un hipervínculo clickeable de forma nativa.
-        Si la URL está vacía o el método falla, devuelve un string crudo.
+        Construye un hipervínculo clickeable usando ``build_url_id`` de docxtpl.
+
+        ``build_url_id`` registra la URL como relación XML del documento;
+        lxml se encarga internamente de escapar caracteres especiales como '&'.
         """
         if not url:
             return ""
-            
+
         try:
+            # Registrar la URL como relación del documento
+            url_id = tpl.build_url_id(url)
+
+            # Crear RichText con hipervínculo referenciando esa relación
             rt = RichText()
-            # El parámetro target de add_link es el ID de la relación URL
-            rt.add_link(url, url=url, underline=True, color="0000FF")
+            rt.add(url, url_id=url_id)
             return rt
         except Exception as exc:
             logger.warning(
@@ -276,12 +280,16 @@ class TemplateBuilder:
             return url
 
     def _cargar_imagen_segura(
-        self, tpl: DocxTemplate, ruta: Path, ancho_mm: int
+        self, tpl: DocxTemplate, ruta: Path, alto_cm
     ) -> InlineImage:
         """
         Carga la imagen con Pillow y la convierte a un JPEG estándar en memoria.
         Esto previene `UnrecognizedImageError` de docx cuando las imágenes son
         WebP o tienen extensiones falsas (ej. un .webp guardado como .jpg).
+
+        Se escala únicamente por altura (``height``), dejando que el ancho
+        se calcule automáticamente según el aspect ratio original,
+        garantizando proporción sin distorsión.
         """
         img_buffer = io.BytesIO()
         try:
@@ -292,9 +300,9 @@ class TemplateBuilder:
                 # Guardar siempre como JPEG estándar al buffer
                 img.save(img_buffer, format="JPEG", quality=90)
                 img_buffer.seek(0)
-                
-            return InlineImage(tpl, img_buffer, width=Mm(ancho_mm))
+
+            return InlineImage(tpl, img_buffer, height=alto_cm)
         except Exception as exc:
             logger.error("Error al procesar imagen segura %s: %s", ruta, exc)
-            # Fallback: intentar pasar la ruta directa (aunque probablemente falle)
-            return InlineImage(tpl, str(ruta), width=Mm(ancho_mm))
+            # Fallback: intentar pasar la ruta directa
+            return InlineImage(tpl, str(ruta), height=alto_cm)
