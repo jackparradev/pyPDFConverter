@@ -21,7 +21,7 @@ from core.models import BatchResult, GenerationBatchResult
 
 def _assets_dir() -> Path:
     if getattr(sys, 'frozen', False):
-        return Path(sys._MEIPASS) / "assets"
+        return Path(sys.executable).parent / "assets"
     return Path(__file__).parent.parent / "assets"
 
 
@@ -57,6 +57,14 @@ class App(tk.Tk):
     # ── Icono y geometría ─────────────────────────────────────
 
     def _aplicar_icono(self) -> None:
+        # Asegurar que Windows use este icono en la barra de tareas 
+        # en lugar del icono genérico de Python/Tkinter
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("covisol.docusol.v2")
+        except Exception:
+            pass
+
         ruta = _assets_dir() / "logo.ico"
         if ruta.exists():
             try:

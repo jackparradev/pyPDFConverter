@@ -153,6 +153,7 @@ class AssetLocator:
         carpeta_general: Path,
         placa: str,
         fecha_texto: str,
+        via: str = "",
     ) -> dict[str, Path]:
         """
         Localiza las tres imágenes de un registro y devuelve sus rutas absolutas.
@@ -168,6 +169,12 @@ class AssetLocator:
         fecha_texto : str
             Fecha y hora de la infracción en formato ``DD/MM/YYYY HH:MM``
             (reloj de 24 horas), por ejemplo ``'11/06/2026 14:30'``.
+        via : str
+            Número o identificador de vía tal como aparece en el Excel
+            (columna ``VIA``), por ejemplo ``'102'`` o ``'VIA 102'``.
+            Se usa como desempate cuando hay varias carpetas con la misma
+            placa y fecha (ej. ``BAY-402 VIA 102 26-06-2026`` vs
+            ``BAY-402 VIA 111 26-06-2026``).  Si está vacío se ignora.
 
         Devuelve
         --------
@@ -185,8 +192,8 @@ class AssetLocator:
         FechaInvalidaError
             Si ``fecha_texto`` no puede parsearse como ``DD/MM/YYYY HH:MM``.
         CarpetaAmbiguaError
-            Si se encuentran dos o más subcarpetas candidatas para la placa
-            y fecha indicadas.
+            Si se encuentran dos o más subcarpetas candidatas y el campo ``via``
+            no logra desempatar entre ellas.
         ArchivosFaltantesError
             Si no existe ninguna subcarpeta candidata, o si falta al menos una
             de las tres imágenes obligatorias dentro de la subcarpeta encontrada.
@@ -216,6 +223,7 @@ class AssetLocator:
             placa_original=placa_original,
             placa=placa,
             fecha_carpeta=fecha_carpeta,
+            via=str(via).strip() if via else "",
         )
 
         # Paso 4 — Búsqueda de las 3 imágenes
@@ -258,10 +266,17 @@ class AssetLocator:
         placa_original: str,
         placa: str,
         fecha_carpeta: str,
+        via: str = "",
     ) -> Path:
         """
-        Busca recursivamente dentro de ``carpeta_general`` un directorio cuyo
-        nombre contenga **tanto** ``placa_original`` **como** ``fecha_carpeta``.
+        Busca dentro de ``carpeta_general`` un directorio cuyo nombre contenga
+        **tanto** ``placa_original`` **como** ``fecha_carpeta``.
+
+        La búsqueda es insensible a mayúsculas y se limita al nombre de la
+        carpeta (``entry.name``), no a su ruta completa, para evitar falsos
+        positivos cuando subcarpetas internas heredan el nombre del padre
+        en la ruta.  Se busca en todos los niveles pero comparando solo el
+        nombre del directorio en cada nivel.
 
         Reglas
         ------
@@ -280,27 +295,67 @@ class AssetLocator:
         fecha_carpeta : str
             Fecha en formato ``DD-MM-YYYY``.
         """
+        placa_lower = placa_original.lower()
+        fecha_lower = fecha_carpeta.lower()
+
         candidatas: list[Path] = [
             entrada
             for entrada in carpeta_general.rglob("*")
             if entrada.is_dir()
-            and placa_original in entrada.name
-            and fecha_carpeta in entrada.name
+            and placa_lower in entrada.name.lower()
+            and fecha_lower in entrada.name.lower()
         ]
+
+        # Eliminar subcarpetas redundantes: si una carpeta candidata es
+        # ancestro de otra candidata, conservar solo la más superficial.
+        # Esto evita que subcarpetas internas de una carpeta válida
+        # provoquen un falso CarpetaAmbiguaError.
+        candidatas_filtradas: list[Path] = []
+        for c in candidatas:
+            es_subcarpeta_de_otra = any(
+                c != otra and c.is_relative_to(otra)
+                for otra in candidatas
+            )
+            if not es_subcarpeta_de_otra:
+                candidatas_filtradas.append(c)
 
         logger.debug(
             "Subcarpetas candidatas para placa='%s', fecha='%s': %s",
-            placa_original, fecha_carpeta, [str(c) for c in candidatas],
+            placa_original, fecha_carpeta, [str(c) for c in candidatas_filtradas],
         )
 
-        if len(candidatas) == 0:
+        if len(candidatas_filtradas) == 0:
             raise ArchivosFaltantesError(placa, ["carpeta del registro"])
 
-        if len(candidatas) >= 2:
-            raise CarpetaAmbiguaError(placa, candidatas)
+        if len(candidatas_filtradas) >= 2:
+            # Intentar desempatar con el número de VIA del Excel
+            if via:
+                via_lower = via.lower()
+                por_via = [
+                    c for c in candidatas_filtradas
+                    if via_lower in c.name.lower()
+                ]
+                logger.debug(
+                    "Desempate por VIA='%s': %d candidata(s) restantes: %s",
+                    via, len(por_via), [str(c) for c in por_via],
+                )
+                if len(por_via) == 1:
+                    logger.info(
+                        "Carpeta desempatada por VIA '%s': '%s'",
+                        via, por_via[0],
+                    )
+                    candidatas_filtradas = por_via
+                elif len(por_via) == 0:
+                    # El VIA no coincidió con ninguna — lanzar con las originales
+                    raise CarpetaAmbiguaError(placa, candidatas_filtradas)
+                else:
+                    # El VIA sigue siendo ambiguo
+                    raise CarpetaAmbiguaError(placa, por_via)
+            else:
+                raise CarpetaAmbiguaError(placa, candidatas_filtradas)
 
         # Exactamente 1 candidata
-        carpeta_registro = candidatas[0]
+        carpeta_registro = candidatas_filtradas[0]
         logger.debug("Subcarpeta seleccionada: '%s'", carpeta_registro)
         return carpeta_registro
 

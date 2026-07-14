@@ -54,6 +54,7 @@ MAPA_CABECERAS: dict[str, str] = {
 # Columnas opcionales: se leen si existen, se ignoran silenciosamente si no.
 MAPO_CABECERAS_OPCIONALES: dict[str, str] = {
     "Grupo": "grupo",
+    "VIA":   "via",
 }
 
 

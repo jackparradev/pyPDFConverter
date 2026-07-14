@@ -31,7 +31,7 @@ from ui.theme import (
 class HeaderPanel(tk.Frame):
     LOGO_NAMES = ("logotipo.png", "logo.gif", "logo.pgm", "logo.ppm")
     LOGO_MAX_H = 52
-    VERSION_TEXT = "v1.0"
+    VERSION_TEXT = "v2.0"
 
     def __init__(self, master, assets_dir: Path, on_toggle_tema: Callable | None = None, **kwargs):
         super().__init__(master, bg=tema.get("FONDO_PANEL"), **kwargs)

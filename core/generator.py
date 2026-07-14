@@ -300,6 +300,7 @@ class MassGenerator:
                 carpeta_general=carpeta_imagenes,
                 placa=placa,
                 fecha_texto=fecha_texto,
+                via=str(fila.get("via", "") or ""),
             )
         except ArchivosFaltantesError as exc:
             archivos_faltantes = exc.archivos_faltantes
