@@ -54,6 +54,21 @@ ProgressCallback = Callable[[float], None]      # 0.0 a 1.0
 DoneCallback     = Callable[[GenerationBatchResult], None]
 
 
+def _via_str(valor: Any) -> str:
+    """
+    Convierte el valor de la celda VIA del Excel a string limpio.
+
+    openpyxl devuelve números como float (ej. 202 → 202.0). Si se convierte
+    directamente con str() queda ``'202.0'``, que no coincide con ``'VIA 202'``
+    en el nombre de la carpeta. Esta función devuelve ``'202'`` en ese caso.
+    """
+    if valor is None:
+        return ""
+    if isinstance(valor, float) and valor.is_integer():
+        return str(int(valor))
+    return str(valor).strip()
+
+
 class MassGenerator:
     """
     Genera masivamente documentos ``.docx`` a partir de un Excel de
@@ -300,7 +315,7 @@ class MassGenerator:
                 carpeta_general=carpeta_imagenes,
                 placa=placa,
                 fecha_texto=fecha_texto,
-                via=str(fila.get("via", "") or ""),
+                via=_via_str(fila.get("via", "")),
             )
         except ArchivosFaltantesError as exc:
             archivos_faltantes = exc.archivos_faltantes
