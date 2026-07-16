@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import threading
 import logging
+from datetime import date
 from pathlib import Path
 from typing import Callable, Any
 
@@ -67,6 +68,24 @@ def _via_str(valor: Any) -> str:
     if isinstance(valor, float) and valor.is_integer():
         return str(int(valor))
     return str(valor).strip()
+
+
+def _correlativo_str(valor: Any) -> str:
+    """
+    Convierte el correlativo del Excel a string de exactamente 4 dígitos.
+
+    Ejemplos:
+    * 337   (int)   → '0337'
+    * 337.0 (float) → '0337'
+    * '337' (str)   → '0337'
+    * 1000  (int)   → '1000'
+    * '0337'(str)   → '0337'  (sin doble cero)
+    """
+    if valor is None:
+        return "0000"
+    if isinstance(valor, float) and valor.is_integer():
+        return str(int(valor)).zfill(4)
+    return str(valor).strip().zfill(4)
 
 
 class MassGenerator:
@@ -361,7 +380,12 @@ class MassGenerator:
             )
 
         # --- Paso 2: generar el .docx ---
-        nombre_archivo = f"REPORTE DE FUGA VEHICULAR 0{correlativo}-2026-COVISOL VEH. {placa}.docx"
+        # Correlativo: siempre 4 dígitos con ceros a la izquierda (0337, 1000...)
+        correlativo_fmt = _correlativo_str(fila.get("correlativo", correlativo))
+        # Año: extraído de la fecha del registro (posición [6:10] en DD/MM/YYYY)
+        # Si la fecha es inválida o corta, se usa el año actual como fallback.
+        anio = fecha_texto[6:10] if len(fecha_texto) >= 10 else str(date.today().year)
+        nombre_archivo = f"REPORTE DE FUGA VEHICULAR {correlativo_fmt}-{anio}-COVISOL VEH. {placa}.docx"
         ruta_destino   = carpeta_salida / nombre_archivo
 
         try:

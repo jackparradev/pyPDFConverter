@@ -23,10 +23,10 @@ subprocess.run([
     "--include-package=lxml",
     "--include-package=jinja2",
     "--include-package=markupsafe",
-    "--output-dir=dist/v2",
+    "--output-dir=dist/v02",
     "--output-filename=DocusolV2.exe",
     "main.py"
 ])
 
 print("\n¡Compilación completada! ✔")
-print("Puedes encontrar tu aplicación en la carpeta: dist/v2/main.dist/")
+print("Puedes encontrar tu aplicación en la carpeta: dist/v02/main.dist/")

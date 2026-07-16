@@ -22,6 +22,7 @@ Prohibiciones
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -105,6 +106,19 @@ class ArchivosFaltantesError(Exception):
             f"{detalle}. Verifique que los archivos existen en la carpeta correcta "
             "y que sus nombres respetan el esquema acordado."
         )
+
+
+# ---------------------------------------------------------------------------
+# Patrón de VIA válido: exactamente 3 dígitos (100-999).
+# Acepta cualquier combinación: 101, 103, 202, 311, 601, etc.
+# Extensible automáticamente a nuevas vías sin cambiar el código.
+# ---------------------------------------------------------------------------
+_PATRON_VIA: re.Pattern[str] = re.compile(r"^\d{3}$")
+
+
+def _via_es_valida(via: str) -> bool:
+    """Devuelve True si ``via`` es exactamente un número de 3 dígitos."""
+    return bool(_PATRON_VIA.match(via.strip()))
 
 
 # ---------------------------------------------------------------------------
@@ -328,16 +342,24 @@ class AssetLocator:
             raise ArchivosFaltantesError(placa, ["carpeta del registro"])
 
         if len(candidatas_filtradas) >= 2:
-            # Intentar desempatar con el número de VIA del Excel
-            if via:
-                via_lower = via.lower()
+            # Intentar desempatar con el número de VIA del Excel.
+            # Solo se usa si el VIA es un número válido de 3 dígitos
+            # (extensible a cualquier rango: 101, 202, 601, 711, etc.).
+            # Si el VIA del Excel no es válido o no coincide con ninguna
+            # carpeta, se lanza CarpetaAmbiguaError normalmente.
+            if via and _via_es_valida(via):
+                # Buscar " {numero} " con espacios para distinguir el VIA
+                # del resto del nombre (placa, fecha) sin importar si la
+                # carpeta incluye o no la palabra "VIA" antes del número.
+                termino_via = f" {via.strip()} "
                 por_via = [
                     c for c in candidatas_filtradas
-                    if via_lower in c.name.lower()
+                    if termino_via in c.name.lower()
                 ]
                 logger.debug(
-                    "Desempate por VIA='%s': %d candidata(s) restantes: %s",
-                    via, len(por_via), [str(c) for c in por_via],
+                    "Desempate por VIA='%s' (término='%s'): %d candidata(s): %s",
+                    via, termino_via.strip(), len(por_via),
+                    [str(c) for c in por_via],
                 )
                 if len(por_via) == 1:
                     logger.info(
@@ -346,12 +368,22 @@ class AssetLocator:
                     )
                     candidatas_filtradas = por_via
                 elif len(por_via) == 0:
-                    # El VIA no coincidió con ninguna — lanzar con las originales
+                    logger.warning(
+                        "VIA '%s' no coincidió con ninguna carpeta candidata "
+                        "para la placa '%s'. Carpetas disponibles: %s",
+                        via, placa,
+                        [c.name for c in candidatas_filtradas],
+                    )
                     raise CarpetaAmbiguaError(placa, candidatas_filtradas)
                 else:
-                    # El VIA sigue siendo ambiguo
                     raise CarpetaAmbiguaError(placa, por_via)
             else:
+                if via:
+                    logger.warning(
+                        "VIA '%s' para placa '%s' no cumple el formato de "
+                        "3 dígitos — no se usa como desempate.",
+                        via, placa,
+                    )
                 raise CarpetaAmbiguaError(placa, candidatas_filtradas)
 
         # Exactamente 1 candidata
